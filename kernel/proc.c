@@ -20,6 +20,8 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
+extern uint ticks; //to measure how long a process ran
+
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
 // memory model when using p->parent.
@@ -125,6 +127,11 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  // initializing, ensures that these variables dont contain garbage values
+  p->priority = 0;
+  p->ticksHi = 0;
+  p->ticksLo = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -168,6 +175,11 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  // ensures that when a process is freed, that my scheduler fields are reset
+  p->priority = 0;
+  p->ticksHi = 0;
+  p->ticksLo = 0;
+  // end
   p->state = UNUSED;
 }
 
@@ -426,6 +438,8 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  uint start;
+  uint elapsed;
 
   c->proc = 0;
   for(;;){
@@ -438,23 +452,86 @@ scheduler(void)
     intr_off();
 
     int found = 0;
+    // loop that goes through entire process table
     for(p = proc; p < &proc[NPROC]; p++) {
+      //locks the process so it can't be modified by any other core/thread/CPU at the same time
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      // high priority queue
+      if(p->state == RUNNABLE && p->priority == 0) {
+        // ----- OG COMMENT
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+        // before jumping back to us
+        // ----- OG COMMENT
 
+        start = ticks; // recording current val of ticks
+
+        // important section. Was already included with code 
+        //process is now using the CPU
+        p->state = RUNNING; 
+        //cpu is running process "p"
+        c->proc = p; 
+        //context switch. SAVE where scheduler is
+        // then load the saved CPU state of p
+        swtch(&c->context, &p->context); 
+
+        //process should have ended, scheduler continues
+        elapsed = ticks - start;
+        p->ticksHi += elapsed;
+
+        // demotion rule. If a process in the high priority queue is at or exceeds
+        // 200 ticks, then it must be demoted
+        if(p->ticksHi >= 200) {
+          p->priority = 1; 
+        }
+
+        // ----- OG COMMENT ------
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
+
+        //needed to release lock
+        release(&p->lock);
+        //stop scanning and go to outer loop
+        break;
       }
       release(&p->lock);
     }
+
+        // low priority queue
+    if(found == 0) {
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE && p->priority == 1) {
+
+        start = ticks; // recording current val of ticks
+
+        // important section. Was already included with code 
+        //process is now using the CPU
+        p->state = RUNNING; 
+        //cpu is running process "p"
+        c->proc = p; 
+        //context switch. SAVE where scheduler is
+        // then load the saved CPU state of p
+        swtch(&c->context, &p->context); 
+
+        //process should have ended, scheduler continues
+        elapsed = ticks - start;
+        p->ticksLo += elapsed;
+
+        c->proc = 0;
+        found = 1;
+        //needed to release lock
+        release(&p->lock);
+        //stop scanning and go to outer loop
+        break;
+      }
+      release(&p->lock);
+    }
+  }
+    
+
     if(found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
@@ -535,6 +612,19 @@ forkret(void)
   uint64 satp = MAKE_SATP(p->pagetable);
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64))trampoline_userret)(satp);
+}
+
+// homework 3 tickshi and tickslo
+int
+tickshi(void)
+{
+  return myproc()->ticksHi;
+}
+
+int
+tickslo(void)
+{
+  return myproc()->ticksLo;
 }
 
 // Sleep on channel chan, releasing condition lock lk.

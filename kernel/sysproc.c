@@ -107,3 +107,16 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//wrapper functions for tickshi and tickslo
+uint64
+sys_tickshi(void)
+{
+  return tickshi();
+}
+
+uint64
+sys_tickslo(void)
+{
+  return tickslo();
+}
