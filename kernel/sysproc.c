@@ -120,3 +120,10 @@ sys_tickslo(void)
 {
   return tickslo();
 }
+
+//homework 4
+uint64
+sys_spage(void)
+{
+  return SHARED_PAGE;
+}

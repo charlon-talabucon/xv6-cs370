@@ -110,4 +110,5 @@ struct proc {
   int priority;
   int ticksHi;
   int ticksLo;
+
 };

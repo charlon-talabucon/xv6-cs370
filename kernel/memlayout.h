@@ -57,3 +57,10 @@
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
+
+// homework 4
+// the manual says that this file declares the constants
+// for xv6's memory. This define will make the virtual
+// address for the shared page constant, and have it appear
+// in every process. implementation is in proc.c
+#define SHARED_PAGE (TRAPFRAME - PGSIZE)

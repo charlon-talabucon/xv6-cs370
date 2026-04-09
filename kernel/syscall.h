@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_tickshi 22
 #define SYS_tickslo 23
+#define SYS_spage 24

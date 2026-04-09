@@ -44,3 +44,4 @@ entry("pause");
 entry("uptime");
 entry("tickshi");
 entry("tickslo");
+entry("spage");

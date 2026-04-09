@@ -28,6 +28,11 @@ extern uint ticks; //to measure how long a process ran
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+//homework 4 additions
+//global pointer for the shared page
+//it'll contain the physical address
+  char *shared_page; 
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -58,6 +63,18 @@ procinit(void)
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
   }
+
+  //homework 4 change
+  //allocating it in procinit because it runs once
+  shared_page = kalloc();
+  if(shared_page == 0)
+    panic("shared_page execute");
+
+  // clearing out junk values
+  for(int i = 0; i < PGSIZE; i++){
+    shared_page[i] = 0;
+  }
+
 }
 
 // Must be called with interrupts disabled,
@@ -214,6 +231,24 @@ proc_pagetable(struct proc *p)
     return 0;
   }
 
+  //homework 4
+  // mapping the physical page on SHARED_PAGE.
+  // Also writing all the permissions for it
+  // PTE_R is "Readable", 
+  // PTE_W is "writable",
+  // PTE_U means it's user-mode accessible
+  if(mappages(pagetable, SHARED_PAGE, PGSIZE,
+              (uint64)shared_page, PTE_R | PTE_W | PTE_U) < 0){
+    // Cleanup
+    // this SHARED_SPACE page is special in the same way as
+    // TRAPFRAME and TRAMPOLINE. Have to clean it up in the same
+    // way, alongside the other special pages
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+    }
+
   return pagetable;
 }
 
@@ -224,6 +259,10 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  // homework 4
+  // adding this so it's in line with the freeing
+  // of physical memory is TRAMPOLINE and TRAPFRAME
+  uvmunmap(pagetable, SHARED_PAGE, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -253,7 +292,14 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
-    if(sz + n > TRAPFRAME) {
+    //homework 4
+    // changing this to SHARED_PAGE because
+    // trapframe is no longer the bottom
+    // 
+    // prevents heap from going up into the virtual
+    // address with shared_page. >= so it stops AT bounds
+    // just in case 
+    if(sz + n >= SHARED_PAGE) {
       return -1;
     }
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {

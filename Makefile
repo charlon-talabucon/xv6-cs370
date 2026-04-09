@@ -147,6 +147,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_hello\
 	$U/_bell\
+	$U/_exhibit\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -103,6 +103,7 @@ extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_tickshi(void);
 extern uint64 sys_tickslo(void);
+extern uint64 sys_spage(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,6 +131,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_tickshi] sys_tickshi,
 [SYS_tickslo] sys_tickslo,
+[SYS_spage] sys_spage
 };
 
 void

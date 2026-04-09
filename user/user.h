@@ -26,6 +26,7 @@ int pause(int);
 int uptime(void);
 int tickshi(void);
 int tickslo(void);
+void* spage(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
